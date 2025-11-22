@@ -1,0 +1,9 @@
+{
+  "name": "Windora OS",
+  "description": "A next-generation hybrid operating system simulation combining the best of Windows 11 and macOS. Features a virtual file system, functional terminal with AI-powered Python simulation, and a trial mode experience.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "display-capture"
+  ]
+}
