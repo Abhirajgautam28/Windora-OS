@@ -8,6 +8,7 @@ export interface WindowState {
   isOpen: boolean;
   isMinimized: boolean;
   isMaximized: boolean;
+  isAlwaysOnTop?: boolean;
   position: { x: number; y: number };
   size: { width: number; height: number };
   zIndex: number;
@@ -47,6 +48,8 @@ export interface AppProps {
   addNotification?: (title: string, message: string, appId?: string) => void;
   accentColor?: string;
   setAccentColor?: (color: string) => void;
+  isDarkMode?: boolean;
+  toggleTheme?: () => void;
 }
 
 export interface FileSystemNode {

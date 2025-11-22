@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { WindowState } from '../types';
-import { X, Minus, Square, Minimize2 } from 'lucide-react';
+import { X, Minus, Square, Minimize2, Pin } from 'lucide-react';
 
 interface WindowProps {
   window: WindowState;
@@ -11,10 +11,11 @@ interface WindowProps {
   onFocus: (id: string) => void;
   onUpdatePosition: (id: string, x: number, y: number) => void;
   onUpdateSize: (id: string, width: number, height: number) => void;
+  onToggleAlwaysOnTop: (id: string) => void;
 }
 
 const Window: React.FC<WindowProps> = ({ 
-  window: windowState, onClose, onMinimize, onMaximize, onFocus, onUpdatePosition, onUpdateSize
+  window: windowState, onClose, onMinimize, onMaximize, onFocus, onUpdatePosition, onUpdateSize, onToggleAlwaysOnTop
 }) => {
   const windowRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -151,7 +152,6 @@ const Window: React.FC<WindowProps> = ({
         transform: windowState.isMaximized 
             ? 'translate3d(0,0,0)' 
             : `translate3d(${windowState.position.x}px, ${windowState.position.y}px, 0)`,
-        // Reset default absolute positioning to rely on transform
         left: 0,
         top: 0,
         width: windowState.isMaximized ? '100%' : windowState.size.width,
@@ -203,8 +203,20 @@ const Window: React.FC<WindowProps> = ({
           </div>
         </div>
         
-        <div className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate px-2">{windowState.title}</div>
-        <div className="w-14"></div>
+        <div className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate px-2 flex items-center gap-2">
+            {windowState.title}
+            {windowState.isAlwaysOnTop && <Pin size={10} className="rotate-45 text-blue-500" />}
+        </div>
+        
+        <div className="window-controls">
+            <button
+                onClick={(e) => { e.stopPropagation(); onToggleAlwaysOnTop(windowState.id); }}
+                className={`p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${windowState.isAlwaysOnTop ? 'text-blue-500' : 'text-gray-400'}`}
+                title="Always on Top"
+            >
+                <Pin size={12} className={windowState.isAlwaysOnTop ? 'fill-current' : ''} />
+            </button>
+        </div>
       </div>
 
       {/* Content Area */}

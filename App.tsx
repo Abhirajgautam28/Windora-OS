@@ -98,6 +98,7 @@ const APPS: AppConfig[] = [
   { id: 'cleanup', name: 'Disk Cleanup', icon: ICONS.Brush, defaultWidth: 500, defaultHeight: 400, component: DiskCleanupApp, color: 'bg-gray-500' },
 ];
 
+// Initial installed apps
 const DEFAULT_INSTALLED_APPS = ['files', 'browser', 'store', 'settings', 'terminal', 'assistant', 'notepad', 'word', 'calculator', 'mail', 'tasks', 'sheets', 'maps', 'camera', 'screen-recorder', 'notes', 'recorder', 'clock', 'weather', 'contacts', 'minesweeper', 'tictactoe', '2048', 'pdf', 'snake', 'cleanup', 'sysinfo', 'code', 'paint', 'music', 'video', 'viewer'];
 
 export default function App() {
@@ -315,6 +316,7 @@ export default function App() {
       isOpen: true,
       isMinimized: false,
       isMaximized: false,
+      isAlwaysOnTop: false,
       position: { x: 100 + (windows.length * 30), y: 80 + (windows.length * 30) },
       size: { width, height },
       zIndex: nextZIndex,
@@ -334,7 +336,7 @@ export default function App() {
       if (runningWindows.length > 0) {
           const activeWindow = runningWindows.sort((a, b) => b.zIndex - a.zIndex)[0];
           if (activeWindow.isMinimized) {
-               setWindows(windows.map(w => w.id === activeWindow.id ? { ...w, isMinimized: false, zIndex: nextZIndex } : w));
+               setWindows(windows.map(w => w.id === activeWindow.id ? { ...w, isMinimized: false, zIndex: (w.isAlwaysOnTop ? 5000 : 10) + nextZIndex } : w));
                setNextZIndex(prev => prev + 1);
                SystemSounds.playWindowOpen();
           } else {
@@ -365,7 +367,7 @@ export default function App() {
       if (win) {
           if (win.desktopId !== currentDesktopId) setCurrentDesktopId(win.desktopId);
           if (win.isMinimized) {
-              setWindows(prev => prev.map(w => w.id === windowId ? { ...w, isMinimized: false, zIndex: nextZIndex } : w));
+              setWindows(prev => prev.map(w => w.id === windowId ? { ...w, isMinimized: false, zIndex: (w.isAlwaysOnTop ? 5000 : 10) + nextZIndex } : w));
               setNextZIndex(n => n + 1);
               SystemSounds.playWindowOpen();
           } else {
@@ -380,7 +382,21 @@ export default function App() {
   const closeWindow = (id: string) => { setWindows(windows.filter(w => w.id !== id)); SystemSounds.playWindowClose(); };
   const toggleMinimize = (id: string) => { setWindows(windows.map(w => w.id === id ? { ...w, isMinimized: !w.isMinimized } : w)); SystemSounds.playWindowClose(); };
   const toggleMaximize = (id: string) => { setWindows(windows.map(w => w.id === id ? { ...w, isMaximized: !w.isMaximized } : w)); bringToFront(id); };
-  const bringToFront = (id: string) => { setWindows(windows.map(w => w.id === id ? { ...w, zIndex: nextZIndex } : w)); setNextZIndex(prev => prev + 1); };
+  const bringToFront = (id: string) => { 
+      setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: (w.isAlwaysOnTop ? 5000 : 10) + nextZIndex } : w)); 
+      setNextZIndex(prev => prev + 1); 
+  };
+  const toggleAlwaysOnTop = (id: string) => {
+    setWindows(prev => prev.map(w => {
+        if (w.id === id) {
+            const isAlwaysOnTop = !w.isAlwaysOnTop;
+            return { ...w, isAlwaysOnTop, zIndex: (isAlwaysOnTop ? 5000 : 10) + nextZIndex };
+        }
+        return w;
+    }));
+    setNextZIndex(prev => prev + 1);
+  };
+
   const updatePosition = (id: string, x: number, y: number) => { setWindows(windows.map(w => w.id === id ? { ...w, position: { x, y } } : w)); };
   const updateSize = (id: string, width: number, height: number) => { setWindows(windows.map(w => w.id === id ? { ...w, size: { width, height } } : w)); };
   const minimizeAll = () => {
@@ -409,7 +425,6 @@ export default function App() {
   const removeWidget = (id: string) => { setWidgets(widgets.filter(w => w.id !== id)); };
   const updateWidgetPosition = (id: string, x: number, y: number) => { setWidgets(widgets.map(w => w.id === id ? { ...w, position: { x, y } } : w)); };
   
-  // Desktop Icon Management
   const updateIconPosition = (appId: string, x: number, y: number) => {
       setIconPositions(prev => ({ ...prev, [appId]: { x, y } }));
   };
@@ -486,7 +501,6 @@ export default function App() {
 
       <div id="desktop-area" className="absolute top-8 bottom-14 left-0 right-0 z-0">
           {displayedApps.map((app, i) => {
-              // Default grid position logic if no saved pos
               const pos = iconPositions[app.id] || { x: 20, y: 20 + i * 100 };
               return (
                   <DesktopShortcut 
@@ -516,7 +530,17 @@ export default function App() {
 
       {windows.map(win => (
         <div key={win.id} style={{ display: win.desktopId === currentDesktopId ? 'block' : 'none' }}>
-            <Window key={win.id} window={win} onClose={closeWindow} onMinimize={toggleMinimize} onMaximize={toggleMaximize} onFocus={bringToFront} onUpdatePosition={updatePosition} onUpdateSize={updateSize} />
+            <Window 
+                key={win.id} 
+                window={win} 
+                onClose={closeWindow} 
+                onMinimize={toggleMinimize} 
+                onMaximize={toggleMaximize} 
+                onFocus={bringToFront} 
+                onUpdatePosition={updatePosition} 
+                onUpdateSize={updateSize} 
+                onToggleAlwaysOnTop={toggleAlwaysOnTop}
+            />
         </div>
       ))}
 

@@ -120,7 +120,8 @@ import {
   MonitorUp,
   Hash,
   Circle,
-  Brush
+  Brush,
+  Pin
 } from 'lucide-react';
 import { FileSystemNode } from './types';
 
@@ -254,7 +255,8 @@ export const ICONS = {
   MonitorUp,
   Hash,
   Circle,
-  Brush
+  Brush,
+  Pin
 };
 
 export const INITIAL_FILES: FileSystemNode[] = [
