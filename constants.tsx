@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  ArrowDown,
   Plus,
   ChevronRight,
   ChevronLeft,
@@ -121,7 +122,8 @@ import {
   Hash,
   Circle,
   Brush,
-  Pin
+  Pin,
+  BellOff
 } from 'lucide-react';
 import { FileSystemNode } from './types';
 
@@ -158,6 +160,7 @@ export const ICONS = {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  ArrowDown,
   Plus,
   ChevronRight,
   ChevronLeft,
@@ -256,7 +259,8 @@ export const ICONS = {
   Hash,
   Circle,
   Brush,
-  Pin
+  Pin,
+  BellOff
 };
 
 export const INITIAL_FILES: FileSystemNode[] = [

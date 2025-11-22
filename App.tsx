@@ -21,12 +21,14 @@ import QuickLook from './components/QuickLook';
 import RunDialog from './components/RunDialog';
 import Screensaver from './components/Screensaver';
 import BSOD from './components/BSOD';
+import ClipboardHistory from './components/ClipboardHistory';
 import { SystemSounds } from './services/soundService';
 
 // Widgets
 import WeatherWidget from './components/widgets/WeatherWidget';
 import ClockWidget from './components/widgets/ClockWidget';
 import NewsWidget from './components/widgets/NewsWidget';
+import SystemInfoWidget from './components/widgets/SystemInfoWidget';
 
 // Apps
 import CalculatorApp from './components/apps/CalculatorApp';
@@ -60,6 +62,7 @@ import Game2048App from './components/apps/Game2048App';
 import DiskCleanupApp from './components/apps/DiskCleanupApp';
 import WordApp from './components/apps/WordApp';
 import SystemInfoApp from './components/apps/SystemInfoApp';
+import SolitaireApp from './components/apps/SolitaireApp';
 
 // --- Application Registry ---
 const APPS: AppConfig[] = [
@@ -93,13 +96,14 @@ const APPS: AppConfig[] = [
   { id: 'minesweeper', name: 'Minesweeper', icon: ICONS.Bomb, defaultWidth: 400, defaultHeight: 500, component: MinesweeperApp, color: 'bg-gray-500' },
   { id: 'tictactoe', name: 'Tic Tac Toe', icon: ICONS.Gamepad2, defaultWidth: 320, defaultHeight: 420, component: TicTacToeApp, color: 'bg-purple-500' },
   { id: '2048', name: '2048', icon: ICONS.Gamepad2, defaultWidth: 360, defaultHeight: 500, component: Game2048App, color: 'bg-yellow-600' },
+  { id: 'solitaire', name: 'Solitaire', icon: ICONS.Gamepad2, defaultWidth: 800, defaultHeight: 600, component: SolitaireApp, color: 'bg-green-700' },
   { id: 'pdf', name: 'PDF Viewer', icon: ICONS.FileText, defaultWidth: 800, defaultHeight: 700, component: PDFViewerApp, color: 'bg-red-700' },
   { id: 'snake', name: 'Snake', icon: ICONS.Gamepad2, defaultWidth: 450, defaultHeight: 550, component: SnakeApp, color: 'bg-green-500' },
   { id: 'cleanup', name: 'Disk Cleanup', icon: ICONS.Brush, defaultWidth: 500, defaultHeight: 400, component: DiskCleanupApp, color: 'bg-gray-500' },
 ];
 
 // Initial installed apps
-const DEFAULT_INSTALLED_APPS = ['files', 'browser', 'store', 'settings', 'terminal', 'assistant', 'notepad', 'word', 'calculator', 'mail', 'tasks', 'sheets', 'maps', 'camera', 'screen-recorder', 'notes', 'recorder', 'clock', 'weather', 'contacts', 'minesweeper', 'tictactoe', '2048', 'pdf', 'snake', 'cleanup', 'sysinfo', 'code', 'paint', 'music', 'video', 'viewer'];
+const DEFAULT_INSTALLED_APPS = ['files', 'browser', 'store', 'settings', 'terminal', 'assistant', 'notepad', 'word', 'calculator', 'mail', 'tasks', 'sheets', 'maps', 'camera', 'screen-recorder', 'notes', 'recorder', 'clock', 'weather', 'contacts', 'minesweeper', 'tictactoe', 'solitaire', '2048', 'pdf', 'snake', 'cleanup', 'sysinfo', 'code', 'paint', 'music', 'video', 'viewer'];
 
 export default function App() {
   const [isInstalled, setIsInstalled] = useState(() => localStorage.getItem('windora_is_installed') === 'true');
@@ -138,9 +142,14 @@ export default function App() {
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('windora_accent_color') || 'blue');
   
   const [isNightLight, setIsNightLight] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false); // Focus Mode State
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [isWidgetGalleryOpen, setIsWidgetGalleryOpen] = useState(false);
   const [isRunDialogOpen, setIsRunDialogOpen] = useState(false);
+  const [isClipboardHistoryOpen, setIsClipboardHistoryOpen] = useState(false);
+  const [clipboardHistory, setClipboardHistory] = useState<string[]>([]);
+  const [globalClipboard, setGlobalClipboard] = useState<{id: string, action: 'copy'|'cut'} | null>(null); // For internal app ref
+
   const [quickLookNode, setQuickLookNode] = useState<FileSystemNode | null>(null);
   const [isScreensaverActive, setIsScreensaverActive] = useState(false);
   const idleTimerRef = useRef<any>(null);
@@ -155,7 +164,6 @@ export default function App() {
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number; visible: boolean } | null>(null);
   const [widgets, setWidgets] = useState<WidgetData[]>([]);
   
-  // Desktop Icon Positions
   const [iconPositions, setIconPositions] = useState<Record<string, {x: number, y: number}>>(() => {
       const saved = localStorage.getItem('windora_icon_positions');
       return saved ? JSON.parse(saved) : {};
@@ -177,6 +185,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('windora_desktops', JSON.stringify(desktops)); }, [desktops]);
   useEffect(() => { localStorage.setItem('windora_icon_positions', JSON.stringify(iconPositions)); }, [iconPositions]);
 
+  // Idle Timer
   useEffect(() => {
       const resetIdle = () => {
           if (isScreensaverActive) setIsScreensaverActive(false);
@@ -212,17 +221,20 @@ export default function App() {
        if (isControlCenterOpen && !(e.target as HTMLElement).closest('.system-tray-control')) setIsControlCenterOpen(false);
        if (isWidgetGalleryOpen && !(e.target as HTMLElement).closest('.widget-gallery')) setIsWidgetGalleryOpen(false);
        if (isTaskViewOpen && !(e.target as HTMLElement).closest('.task-view-container') && !(e.target as HTMLElement).closest('.task-view-trigger')) setIsTaskViewOpen(false);
+       if (isClipboardHistoryOpen && !(e.target as HTMLElement).closest('.clipboard-history-container')) setIsClipboardHistoryOpen(false);
     };
     
     const handleGlobalKeys = (e: KeyboardEvent) => {
         if (e.altKey && e.code === 'Space') { e.preventDefault(); setIsSpotlightOpen(prev => !prev); }
         if (e.altKey && e.key.toLowerCase() === 'r') { e.preventDefault(); setIsRunDialogOpen(prev => !prev); }
+        if (e.altKey && e.key.toLowerCase() === 'v') { e.preventDefault(); setIsClipboardHistoryOpen(prev => !prev); }
         if (e.key === 'Escape') {
             setQuickLookNode(null);
             setIsStartOpen(false);
             setIsCalendarOpen(false);
             setIsControlCenterOpen(false);
             setIsTaskViewOpen(false);
+            setIsClipboardHistoryOpen(false);
         }
     };
     window.addEventListener('click', handleClickOutside);
@@ -231,11 +243,11 @@ export default function App() {
         window.removeEventListener('click', handleClickOutside);
         window.removeEventListener('keydown', handleGlobalKeys);
     };
-  }, [desktopContextMenu, taskbarContextMenu, isCalendarOpen, isWidgetGalleryOpen, quickLookNode, isStartOpen, isControlCenterOpen, isTaskViewOpen]);
+  }, [desktopContextMenu, taskbarContextMenu, isCalendarOpen, isWidgetGalleryOpen, quickLookNode, isStartOpen, isControlCenterOpen, isTaskViewOpen, isClipboardHistoryOpen]);
 
   const addNotification = (title: string, message: string, appId: string = 'system') => {
       setNotifications(prev => [{ id: Date.now().toString(), title, message, timestamp: new Date(), appId, read: false }, ...prev]);
-      SystemSounds.playNotification();
+      if (!isFocusMode) SystemSounds.playNotification();
   };
   const clearNotifications = () => setNotifications([]);
   const installApp = (appId: string) => {
@@ -250,6 +262,16 @@ export default function App() {
       addNotification("App Uninstalled", "Application has been removed from the system.", "system");
   };
   const handleQuickLook = (node: FileSystemNode) => setQuickLookNode(node);
+
+  // Clipboard Manager
+  const copyToClipboard = (text: string) => {
+      navigator.clipboard.writeText(text);
+      setClipboardHistory(prev => {
+          const newHist = [text, ...prev.filter(item => item !== text)].slice(0, 20);
+          return newHist;
+      });
+      addNotification("Clipboard", "Text copied to clipboard history", "system");
+  };
 
   const renderAppContent = (appId: string, windowId: string, data?: any) => {
     const commonProps = { windowId, addNotification, accentColor, setAccentColor, isDarkMode, toggleTheme: () => setIsDarkMode(!isDarkMode) };
@@ -283,6 +305,7 @@ export default function App() {
       case 'maps': return <MapsApp {...commonProps} />;
       case 'minesweeper': return <MinesweeperApp {...commonProps} />;
       case 'tictactoe': return <TicTacToeApp {...commonProps} />;
+      case 'solitaire': return <SolitaireApp {...commonProps} />;
       case '2048': return <Game2048App {...commonProps} />;
       case 'cleanup': return <DiskCleanupApp {...commonProps} />;
       case 'pdf': return <PDFViewerApp {...commonProps} initialContent={data} />;
@@ -330,7 +353,7 @@ export default function App() {
     SystemSounds.playWindowOpen();
   };
   
-  // --- Window Management ---
+  // Window Management (Click, Drag, Resize) - largely same as before, just ensuring state integrity
   const handleDockClick = (appId: string) => {
       const runningWindows = windows.filter(w => w.appId === appId && w.desktopId === currentDesktopId);
       if (runningWindows.length > 0) {
@@ -353,85 +376,28 @@ export default function App() {
       }
   };
 
-  const handleDockEnter = (appId: string) => {
-      if (dockHoverTimeoutRef.current) { clearTimeout(dockHoverTimeoutRef.current); dockHoverTimeoutRef.current = null; }
-      setHoveredDockApp(appId);
-  };
-
-  const handleDockLeave = () => {
-      dockHoverTimeoutRef.current = setTimeout(() => { setHoveredDockApp(null); }, 150);
-  };
-  
-  const handlePreviewSelect = (windowId: string) => {
-      const win = windows.find(w => w.id === windowId);
-      if (win) {
-          if (win.desktopId !== currentDesktopId) setCurrentDesktopId(win.desktopId);
-          if (win.isMinimized) {
-              setWindows(prev => prev.map(w => w.id === windowId ? { ...w, isMinimized: false, zIndex: (w.isAlwaysOnTop ? 5000 : 10) + nextZIndex } : w));
-              setNextZIndex(n => n + 1);
-              SystemSounds.playWindowOpen();
-          } else {
-              bringToFront(windowId);
-          }
-      }
-      setIsStartOpen(false);
-      setHoveredDockApp(null);
-      if (dockHoverTimeoutRef.current) clearTimeout(dockHoverTimeoutRef.current);
-  };
-
+  const handleDockEnter = (appId: string) => { if (dockHoverTimeoutRef.current) { clearTimeout(dockHoverTimeoutRef.current); dockHoverTimeoutRef.current = null; } setHoveredDockApp(appId); };
+  const handleDockLeave = () => { dockHoverTimeoutRef.current = setTimeout(() => { setHoveredDockApp(null); }, 150); };
+  const handlePreviewSelect = (windowId: string) => { const win = windows.find(w => w.id === windowId); if (win) { if (win.desktopId !== currentDesktopId) setCurrentDesktopId(win.desktopId); if (win.isMinimized) { setWindows(prev => prev.map(w => w.id === windowId ? { ...w, isMinimized: false, zIndex: (w.isAlwaysOnTop ? 5000 : 10) + nextZIndex } : w)); setNextZIndex(n => n + 1); SystemSounds.playWindowOpen(); } else { bringToFront(windowId); } } setIsStartOpen(false); setHoveredDockApp(null); if (dockHoverTimeoutRef.current) clearTimeout(dockHoverTimeoutRef.current); };
   const closeWindow = (id: string) => { setWindows(windows.filter(w => w.id !== id)); SystemSounds.playWindowClose(); };
   const toggleMinimize = (id: string) => { setWindows(windows.map(w => w.id === id ? { ...w, isMinimized: !w.isMinimized } : w)); SystemSounds.playWindowClose(); };
   const toggleMaximize = (id: string) => { setWindows(windows.map(w => w.id === id ? { ...w, isMaximized: !w.isMaximized } : w)); bringToFront(id); };
-  const bringToFront = (id: string) => { 
-      setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: (w.isAlwaysOnTop ? 5000 : 10) + nextZIndex } : w)); 
-      setNextZIndex(prev => prev + 1); 
-  };
-  const toggleAlwaysOnTop = (id: string) => {
-    setWindows(prev => prev.map(w => {
-        if (w.id === id) {
-            const isAlwaysOnTop = !w.isAlwaysOnTop;
-            return { ...w, isAlwaysOnTop, zIndex: (isAlwaysOnTop ? 5000 : 10) + nextZIndex };
-        }
-        return w;
-    }));
-    setNextZIndex(prev => prev + 1);
-  };
-
+  const bringToFront = (id: string) => { setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: (w.isAlwaysOnTop ? 5000 : 10) + nextZIndex } : w)); setNextZIndex(prev => prev + 1); };
+  const toggleAlwaysOnTop = (id: string) => { setWindows(prev => prev.map(w => { if (w.id === id) { const isAlwaysOnTop = !w.isAlwaysOnTop; return { ...w, isAlwaysOnTop, zIndex: (isAlwaysOnTop ? 5000 : 10) + nextZIndex }; } return w; })); setNextZIndex(prev => prev + 1); };
   const updatePosition = (id: string, x: number, y: number) => { setWindows(windows.map(w => w.id === id ? { ...w, position: { x, y } } : w)); };
   const updateSize = (id: string, width: number, height: number) => { setWindows(windows.map(w => w.id === id ? { ...w, size: { width, height } } : w)); };
-  const minimizeAll = () => {
-      const hasOpen = windows.some(w => w.desktopId === currentDesktopId && !w.isMinimized);
-      setWindows(prev => prev.map(w => w.desktopId === currentDesktopId ? { ...w, isMinimized: hasOpen } : w));
-  };
+  const minimizeAll = () => { const hasOpen = windows.some(w => w.desktopId === currentDesktopId && !w.isMinimized); setWindows(prev => prev.map(w => w.desktopId === currentDesktopId ? { ...w, isMinimized: hasOpen } : w)); };
+  const addDesktop = () => { const newId = Math.max(...desktops.map(d => d.id)) + 1; setDesktops([...desktops, { id: newId, name: `Desktop ${newId + 1}` }]); setCurrentDesktopId(newId); };
+  const removeDesktop = (id: number, e: React.MouseEvent) => { e.stopPropagation(); if (desktops.length <= 1) return; const newDesktops = desktops.filter(d => d.id !== id); setDesktops(newDesktops); setWindows(prev => prev.map(w => w.desktopId === id ? { ...w, desktopId: newDesktops[0].id } : w)); if (currentDesktopId === id) setCurrentDesktopId(newDesktops[0].id); };
 
-  const addDesktop = () => {
-      const newId = Math.max(...desktops.map(d => d.id)) + 1;
-      setDesktops([...desktops, { id: newId, name: `Desktop ${newId + 1}` }]);
-      setCurrentDesktopId(newId);
-  };
-  const removeDesktop = (id: number, e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (desktops.length <= 1) return;
-      const newDesktops = desktops.filter(d => d.id !== id);
-      setDesktops(newDesktops);
-      setWindows(prev => prev.map(w => w.desktopId === id ? { ...w, desktopId: newDesktops[0].id } : w));
-      if (currentDesktopId === id) setCurrentDesktopId(newDesktops[0].id);
-  };
-
-  const addWidget = (type: WidgetData['type']) => {
-      setWidgets([...widgets, { id: `widget-${Date.now()}`, type, position: { x: 100 + (widgets.length * 20), y: 100 + (widgets.length * 20) } }]);
-      setIsWidgetGalleryOpen(false);
-  };
+  const addWidget = (type: WidgetData['type']) => { setWidgets([...widgets, { id: `widget-${Date.now()}`, type, position: { x: 100 + (widgets.length * 20), y: 100 + (widgets.length * 20) } }]); setIsWidgetGalleryOpen(false); };
   const removeWidget = (id: string) => { setWidgets(widgets.filter(w => w.id !== id)); };
   const updateWidgetPosition = (id: string, x: number, y: number) => { setWidgets(widgets.map(w => w.id === id ? { ...w, position: { x, y } } : w)); };
-  
-  const updateIconPosition = (appId: string, x: number, y: number) => {
-      setIconPositions(prev => ({ ...prev, [appId]: { x, y } }));
-  };
+  const updateIconPosition = (appId: string, x: number, y: number) => { setIconPositions(prev => ({ ...prev, [appId]: { x, y } })); };
 
   const handleDesktopMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).id === "desktop-area" || (e.target as HTMLElement).id === "desktop-container") {
-        setIsStartOpen(false); setIsNotificationCenterOpen(false); setIsCalendarOpen(false); setIsWidgetGalleryOpen(false); setIsControlCenterOpen(false); setIsTaskViewOpen(false);
+        setIsStartOpen(false); setIsNotificationCenterOpen(false); setIsCalendarOpen(false); setIsWidgetGalleryOpen(false); setIsControlCenterOpen(false); setIsTaskViewOpen(false); setIsClipboardHistoryOpen(false);
         setSelectionBox({ startX: e.clientX, startY: e.clientY, currentX: e.clientX, currentY: e.clientY, visible: true });
     }
   };
@@ -440,7 +406,6 @@ export default function App() {
   const handleDesktopContextMenu = (e: React.MouseEvent) => { e.preventDefault(); setDesktopContextMenu({ x: e.clientX, y: e.clientY }); };
   const handleTaskbarContextMenu = (e: React.MouseEvent) => { e.preventDefault(); setTaskbarContextMenu({ x: e.clientX, y: e.clientY }); };
   const cycleWallpaper = () => { setWallpaperIndex((prev) => (prev + 1) % WALLPAPER_URLS.length); setDesktopContextMenu(null); };
-  
   const handleRunCommand = (cmd: string) => {
       const lower = cmd.toLowerCase();
       const app = APPS.find(a => a.id === lower || a.name.toLowerCase() === lower);
@@ -453,7 +418,6 @@ export default function App() {
   const activeWindow = windows.filter(w => w.desktopId === currentDesktopId).sort((a,b) => b.zIndex - a.zIndex)[0];
   const activeAppConfig = activeWindow ? APPS.find(a => a.id === activeWindow.appId) : null;
   const displayedApps = APPS.filter(app => installedAppIds.includes(app.id));
-  
   const activeAccentBg = `bg-${accentColor}-500`;
   const activeAccentBorder = `border-${accentColor}-500`;
 
@@ -476,6 +440,7 @@ export default function App() {
       <TrialOverlay />
       <QuickLook node={quickLookNode} onClose={() => setQuickLookNode(null)} />
       <RunDialog isOpen={isRunDialogOpen} onClose={() => setIsRunDialogOpen(false)} onRun={handleRunCommand} />
+      <ClipboardHistory isOpen={isClipboardHistoryOpen} onClose={() => setIsClipboardHistoryOpen(false)} history={clipboardHistory} onSelect={copyToClipboard} onClear={() => setClipboardHistory([])} accentColor={accentColor} />
 
       <div className="h-8 bg-white/60 dark:bg-[#1a1a1a]/80 backdrop-blur-xl flex items-center justify-between px-4 z-[5000] border-b border-white/10 transition-colors shadow-sm">
         <div className="flex items-center gap-4 font-medium text-sm">
@@ -493,7 +458,7 @@ export default function App() {
         </div>
         <div className="flex items-center gap-2">
              <button onClick={() => setIsNotificationCenterOpen(true)} className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-all relative">
-                <ICONS.Bell size={16} />
+                {isFocusMode ? <ICONS.BellOff size={16} /> : <ICONS.Bell size={16} />}
                 {notifications.some(n => !n.read) && <div className={`absolute top-1.5 right-1.5 w-2 h-2 ${activeAccentBg} rounded-full border border-white dark:border-black`}></div>}
             </button>
         </div>
@@ -502,27 +467,18 @@ export default function App() {
       <div id="desktop-area" className="absolute top-8 bottom-14 left-0 right-0 z-0">
           {displayedApps.map((app, i) => {
               const pos = iconPositions[app.id] || { x: 20, y: 20 + i * 100 };
-              return (
-                  <DesktopShortcut 
-                      key={app.id} 
-                      app={app} 
-                      position={pos} 
-                      onOpen={openApp} 
-                      onUpdatePosition={updateIconPosition}
-                  />
-              );
+              return <DesktopShortcut key={app.id} app={app} position={pos} onOpen={openApp} onUpdatePosition={updateIconPosition} />;
           })}
-          
           {selectionBox?.visible && (
               <div className={`absolute border ${activeAccentBorder.replace('bg', 'border')} ${activeAccentBg.replace('bg', 'bg')}/20 z-50 pointer-events-none`}
                 style={{ left: Math.min(selectionBox.startX, selectionBox.currentX), top: Math.min(selectionBox.startY, selectionBox.currentY), width: Math.abs(selectionBox.currentX - selectionBox.startX), height: Math.abs(selectionBox.currentY - selectionBox.startY), backgroundColor: `var(--accent-color, rgba(59, 130, 246, 0.2))`, borderColor: `var(--accent-color, #3b82f6)` }}></div>
           )}
-          
           {widgets.map(widget => (
               <DesktopWidget key={widget.id} widget={widget} onRemove={removeWidget} onUpdatePosition={updateWidgetPosition}>
                   {widget.type === 'weather' && <WeatherWidget />}
                   {widget.type === 'clock' && <ClockWidget />}
                   {widget.type === 'news' && <NewsWidget />}
+                  {widget.type === 'system' && <SystemInfoWidget />}
                   {widget.type === 'calendar' && <CalendarWidget isOpen={true} onClose={() => {}} className="w-80 bg-[#f9f9f9]/95 dark:bg-[#1c1c1e]/95 backdrop-blur-2xl rounded-2xl border border-white/10 overflow-hidden flex flex-col p-4 select-none" />}
               </DesktopWidget>
           ))}
@@ -530,62 +486,34 @@ export default function App() {
 
       {windows.map(win => (
         <div key={win.id} style={{ display: win.desktopId === currentDesktopId ? 'block' : 'none' }}>
-            <Window 
-                key={win.id} 
-                window={win} 
-                onClose={closeWindow} 
-                onMinimize={toggleMinimize} 
-                onMaximize={toggleMaximize} 
-                onFocus={bringToFront} 
-                onUpdatePosition={updatePosition} 
-                onUpdateSize={updateSize} 
-                onToggleAlwaysOnTop={toggleAlwaysOnTop}
-            />
+            <Window key={win.id} window={win} onClose={closeWindow} onMinimize={toggleMinimize} onMaximize={toggleMaximize} onFocus={bringToFront} onUpdatePosition={updatePosition} onUpdateSize={updateSize} onToggleAlwaysOnTop={toggleAlwaysOnTop} />
         </div>
       ))}
 
-      <div 
-        className="absolute bottom-3 left-2 right-2 h-12 bg-[#f3f3f3]/80 dark:bg-[#111]/80 backdrop-blur-2xl rounded-lg border border-white/40 dark:border-white/10 flex items-center justify-between px-2 shadow-2xl z-[6000]"
-        onContextMenu={handleTaskbarContextMenu}
-      >
+      <div className="absolute bottom-3 left-2 right-2 h-12 bg-[#f3f3f3]/80 dark:bg-[#111]/80 backdrop-blur-2xl rounded-lg border border-white/40 dark:border-white/10 flex items-center justify-between px-2 shadow-2xl z-[6000]" onContextMenu={handleTaskbarContextMenu}>
           <div className="w-32 flex items-center pl-1">
                <button onClick={() => setIsWidgetGalleryOpen(true)} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white/50 dark:hover:bg-white/10 rounded-md transition-colors group text-gray-700 dark:text-white">
                    <ICONS.LayoutDashboard size={18} /> <span className="text-xs font-medium hidden sm:block">Widgets</span>
                </button>
           </div>
-
           <div className="flex-1 flex justify-center items-center h-full gap-1">
               <div className="start-menu-trigger relative">
                   <button onClick={() => setIsStartOpen(!isStartOpen)} className="p-2 rounded-md hover:bg-white/50 dark:hover:bg-white/10 transition-all active:scale-95">
                       <ICONS.LayoutGrid size={20} className={`text-${accentColor}-600 dark:text-${accentColor}-400`} />
                   </button>
-                  {isStartOpen && (
-                      <div className="start-menu-container absolute bottom-full mb-4 left-1/2 -translate-x-1/2">
-                           <StartMenu apps={displayedApps} onOpenApp={openApp} isOpen={isStartOpen} onClose={() => setIsStartOpen(false)} accentColor={accentColor} />
-                      </div>
-                  )}
+                  {isStartOpen && <div className="start-menu-container absolute bottom-full mb-4 left-1/2 -translate-x-1/2"><StartMenu apps={displayedApps} onOpenApp={openApp} isOpen={isStartOpen} onClose={() => setIsStartOpen(false)} accentColor={accentColor} /></div>}
               </div>
-
-              <button onClick={() => setIsSpotlightOpen(true)} className="p-2 rounded-md hover:bg-white/50 dark:hover:bg-white/10 transition-all active:scale-95">
-                  <ICONS.Search size={20} className="text-gray-600 dark:text-white/80" />
-              </button>
-              
+              <button onClick={() => setIsSpotlightOpen(true)} className="p-2 rounded-md hover:bg-white/50 dark:hover:bg-white/10 transition-all active:scale-95"><ICONS.Search size={20} className="text-gray-600 dark:text-white/80" /></button>
               <div className="task-view-trigger relative">
-                  <button onClick={() => setIsTaskViewOpen(!isTaskViewOpen)} className={`p-2 rounded-md hover:bg-white/50 dark:hover:bg-white/10 transition-all active:scale-95 ${isTaskViewOpen ? 'bg-white/50 dark:bg-white/10' : ''}`}>
-                      <ICONS.GalleryHorizontal size={20} className="text-gray-600 dark:text-white/80" />
-                  </button>
+                  <button onClick={() => setIsTaskViewOpen(!isTaskViewOpen)} className={`p-2 rounded-md hover:bg-white/50 dark:hover:bg-white/10 transition-all active:scale-95 ${isTaskViewOpen ? 'bg-white/50 dark:bg-white/10' : ''}`}><ICONS.GalleryHorizontal size={20} className="text-gray-600 dark:text-white/80" /></button>
               </div>
-
               <div className="w-[1px] h-6 bg-gray-400/20 dark:bg-white/10 mx-1"></div>
-
               {displayedApps.slice(0, 8).map(app => { 
                   const isRunning = windows.some(w => w.appId === app.id);
                   const appWindows = windows.filter(w => w.appId === app.id && w.desktopId === currentDesktopId);
                   return (
                       <div key={app.id} className="relative group" onMouseEnter={() => handleDockEnter(app.id)} onMouseLeave={handleDockLeave}>
-                          {hoveredDockApp === app.id && isRunning && (
-                              <TaskbarPreview windows={appWindows} onSelect={handlePreviewSelect} onClose={closeWindow} icon={app.icon} />
-                          )}
+                          {hoveredDockApp === app.id && isRunning && <TaskbarPreview windows={appWindows} onSelect={handlePreviewSelect} onClose={closeWindow} icon={app.icon} />}
                           <button onClick={() => handleDockClick(app.id)} className="p-2 rounded-md hover:bg-white/50 dark:hover:bg-white/10 transition-all active:scale-95 relative w-10 h-10 flex items-center justify-center">
                               <app.icon size={20} className={app.id === 'browser' ? `text-${accentColor}-500` : 'text-gray-700 dark:text-gray-200'} />
                               {isRunning && <div className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${activeAccentBg}`}></div>}
@@ -594,14 +522,8 @@ export default function App() {
                   );
               })}
           </div>
-
           <div className="w-fit flex items-center justify-end h-full system-tray-control system-tray-calendar gap-1">
-               <SystemTray 
-                  onToggleControlCenter={() => setIsControlCenterOpen(!isControlCenterOpen)}
-                  onToggleCalendar={() => setIsCalendarOpen(!isCalendarOpen)}
-                  isControlCenterOpen={isControlCenterOpen}
-                  isCalendarOpen={isCalendarOpen}
-               />
+               <SystemTray onToggleControlCenter={() => setIsControlCenterOpen(!isControlCenterOpen)} onToggleCalendar={() => setIsCalendarOpen(!isCalendarOpen)} isControlCenterOpen={isControlCenterOpen} isCalendarOpen={isCalendarOpen} />
                <button onClick={minimizeAll} className="w-1.5 h-full hover:bg-white/20 border-l border-gray-300 dark:border-white/10 ml-1" title="Show Desktop"></button>
           </div>
       </div>
@@ -609,30 +531,12 @@ export default function App() {
       {isTaskViewOpen && (
           <div className="task-view-container absolute bottom-20 left-0 right-0 h-40 bg-[#f9f9f9]/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-t border-white/10 flex items-center justify-center gap-4 z-[6500] animate-in slide-in-from-bottom-10 fade-in duration-200">
               {desktops.map(desktop => (
-                  <div 
-                    key={desktop.id} 
-                    onClick={() => { setCurrentDesktopId(desktop.id); setIsTaskViewOpen(false); }}
-                    className={`relative w-48 h-28 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-center group
-                        ${currentDesktopId === desktop.id ? `border-${accentColor}-500 bg-${accentColor}-500/10` : 'border-gray-300 dark:border-white/10 hover:bg-white/10'}
-                    `}
-                  >
+                  <div key={desktop.id} onClick={() => { setCurrentDesktopId(desktop.id); setIsTaskViewOpen(false); }} className={`relative w-48 h-28 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-center group ${currentDesktopId === desktop.id ? `border-${accentColor}-500 bg-${accentColor}-500/10` : 'border-gray-300 dark:border-white/10 hover:bg-white/10'}`}>
                       <span className="text-sm font-medium">{desktop.name}</span>
-                      {desktops.length > 1 && (
-                          <button 
-                            onClick={(e) => removeDesktop(desktop.id, e)}
-                            className="absolute top-1 right-1 p-1 hover:bg-red-500 hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                              <ICONS.XIcon size={12} />
-                          </button>
-                      )}
+                      {desktops.length > 1 && <button onClick={(e) => removeDesktop(desktop.id, e)} className="absolute top-1 right-1 p-1 hover:bg-red-500 hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><ICONS.XIcon size={12} /></button>}
                   </div>
               ))}
-              <button 
-                onClick={addDesktop}
-                className="w-12 h-28 rounded-xl border-2 border-dashed border-gray-300 dark:border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
-              >
-                  <ICONS.Plus size={24} />
-              </button>
+              <button onClick={addDesktop} className="w-12 h-28 rounded-xl border-2 border-dashed border-gray-300 dark:border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"><ICONS.Plus size={24} /></button>
           </div>
       )}
 
@@ -640,7 +544,7 @@ export default function App() {
           <CalendarWidget isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} className="w-80 bg-[#f9f9f9]/95 dark:bg-[#1c1c1e]/95 backdrop-blur-2xl rounded-2xl border border-white/20 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 fade-in duration-200 p-4 select-none" />
       </div>
       <ControlCenter isOpen={isControlCenterOpen} onClose={() => setIsControlCenterOpen(false)} toggleTheme={() => setIsDarkMode(!isDarkMode)} isDarkMode={isDarkMode} isNightLight={isNightLight} toggleNightLight={() => setIsNightLight(!isNightLight)} accentColor={accentColor} />
-      <NotificationCenter isOpen={isNotificationCenterOpen} onClose={() => setIsNotificationCenterOpen(false)} toggleTheme={() => setIsDarkMode(!isDarkMode)} isDarkMode={isDarkMode} isNightLight={isNightLight} toggleNightLight={() => setIsNightLight(!isNightLight)} notifications={notifications} clearNotifications={clearNotifications} apps={APPS} />
+      <NotificationCenter isOpen={isNotificationCenterOpen} onClose={() => setIsNotificationCenterOpen(false)} toggleTheme={() => setIsDarkMode(!isDarkMode)} isDarkMode={isDarkMode} isNightLight={isNightLight} toggleNightLight={() => setIsNightLight(!isNightLight)} notifications={notifications} clearNotifications={clearNotifications} apps={APPS} isFocusMode={isFocusMode} toggleFocusMode={() => setIsFocusMode(!isFocusMode)} />
       <SpotlightSearch isOpen={isSpotlightOpen} onClose={() => setIsSpotlightOpen(false)} apps={displayedApps} onOpenApp={openApp} fileSystem={fileSystem} toggleTheme={() => setIsDarkMode(!isDarkMode)} isDarkMode={isDarkMode} />
       
       {desktopContextMenu && (
@@ -683,6 +587,10 @@ export default function App() {
                       <div className="p-4 border border-gray-200 dark:border-white/10 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer transition-all group" onClick={() => addWidget('news')}>
                           <div className="font-bold mb-2 dark:text-white">News Feed</div>
                           <div className="pointer-events-none transform scale-75 origin-top-left"><NewsWidget /></div>
+                      </div>
+                      <div className="p-4 border border-gray-200 dark:border-white/10 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer transition-all group" onClick={() => addWidget('system')}>
+                          <div className="font-bold mb-2 dark:text-white">System Info</div>
+                          <div className="pointer-events-none transform scale-75 origin-top-left"><SystemInfoWidget /></div>
                       </div>
                       <div className="p-4 border border-gray-200 dark:border-white/10 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer transition-all group" onClick={() => addWidget('calendar')}>
                           <div className="font-bold mb-2 dark:text-white">Calendar</div>

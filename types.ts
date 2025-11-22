@@ -88,6 +88,6 @@ export type ViewMode = 'grid' | 'list';
 
 export interface WidgetData {
     id: string;
-    type: 'weather' | 'clock' | 'news' | 'calendar';
+    type: 'weather' | 'clock' | 'news' | 'calendar' | 'system';
     position: { x: number; y: number };
 }

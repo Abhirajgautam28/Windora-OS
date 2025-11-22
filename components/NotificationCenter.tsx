@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Wifi, Bluetooth, Moon, Sun, Bell, Settings, Eye, Trash2 } from 'lucide-react';
+import { X, Wifi, Bluetooth, Moon, Sun, Bell, Settings, Eye, Trash2, BellOff } from 'lucide-react';
 import { OSNotification, AppConfig } from '../types';
 
 interface NotificationCenterProps {
@@ -13,6 +13,8 @@ interface NotificationCenterProps {
   notifications: OSNotification[];
   clearNotifications: () => void;
   apps: AppConfig[];
+  isFocusMode: boolean;
+  toggleFocusMode: () => void;
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({ 
@@ -24,7 +26,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   toggleNightLight,
   notifications,
   clearNotifications,
-  apps
+  apps,
+  isFocusMode,
+  toggleFocusMode
 }) => {
   if (!isOpen) return null;
 
@@ -58,7 +62,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   return (
     <div className="absolute top-10 right-2 w-80 h-[calc(100vh-100px)] bg-[#f9f9f9]/95 dark:bg-[#1c1c1e]/95 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl z-[6000] overflow-hidden flex flex-col animate-in slide-in-from-right-10 duration-200 text-gray-900 dark:text-white will-change-transform">
        <div className="p-4 border-b border-gray-200/50 dark:border-white/10 flex justify-between items-center">
-          <span className="font-semibold text-gray-800 dark:text-white">Notifications</span>
+          <span className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              Notifications {isFocusMode && <BellOff size={14} className="text-gray-400" />}
+          </span>
           <div className="flex gap-2">
              {notifications.length > 0 && (
                  <button onClick={clearNotifications} className="p-1.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors text-gray-500 dark:text-gray-400" title="Clear all">
@@ -72,6 +78,18 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
        </div>
 
        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+          {isFocusMode && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 p-3 rounded-xl flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white">
+                      <BellOff size={16} />
+                  </div>
+                  <div>
+                      <div className="text-xs font-bold">Focus Assist is On</div>
+                      <div className="text-[10px] opacity-70">You won't hear notification sounds.</div>
+                  </div>
+              </div>
+          )}
+
           {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 text-gray-400">
                   <Bell size={32} className="mb-2 opacity-20" />
@@ -103,16 +121,23 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 <Bluetooth size={20} />
              </button>
              <button 
-                onClick={toggleTheme}
-                className={`aspect-square rounded-xl ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200 text-gray-800'} flex flex-col items-center justify-center gap-1 hover:opacity-90 transition-colors`}
+                onClick={toggleFocusMode}
+                className={`aspect-square rounded-xl ${isFocusMode ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white'} flex flex-col items-center justify-center gap-1 hover:opacity-90 transition-colors`}
+                title="Focus Assist"
              >
-                {isDarkMode ? <Moon size={20} className="text-white" /> : <Sun size={20} />}
+                {isFocusMode ? <BellOff size={20} /> : <Bell size={20} />}
              </button>
              <button 
                 onClick={toggleNightLight}
                 className={`aspect-square rounded-xl ${isNightLight ? 'bg-orange-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white'} flex flex-col items-center justify-center gap-1 hover:opacity-90 transition-colors`}
              >
                 <Eye size={20} />
+             </button>
+             <button 
+                onClick={toggleTheme}
+                className={`aspect-square rounded-xl ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200 text-gray-800'} flex flex-col items-center justify-center gap-1 hover:opacity-90 transition-colors`}
+             >
+                {isDarkMode ? <Moon size={20} className="text-white" /> : <Sun size={20} />}
              </button>
              <button className="aspect-square rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white flex flex-col items-center justify-center gap-1 hover:opacity-90 transition-opacity">
                 <Settings size={20} />
